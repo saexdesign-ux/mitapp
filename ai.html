@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest"></script>
+</head>
+<body>
+
+  <div id="camera"></div>
+
+  <script>
+    const URL = "https://teachablemachine.withgoogle.com/models/jIEh2o4y-/";
+
+    let model, webcam;
+
+    async function init() {
+      const modelURL = URL + "model.json";
+      const metadataURL = URL + "metadata.json";
+
+      model = await tmImage.load(modelURL, metadataURL);
+
+      webcam = new tmImage.Webcam(300, 300, true);
+      await webcam.setup();
+      await webcam.play();
+
+      // 🔥 INI YANG PENTING (tampilkan kamera)
+      document.getElementById("camera").appendChild(webcam.canvas);
+
+      window.requestAnimationFrame(loop);
+    }
+
+    async function loop() {
+      webcam.update();
+      await predict();
+      window.requestAnimationFrame(loop);
+    }
+
+    async function predict() {
+      const prediction = await model.predict(webcam.canvas);
+
+      let highest = prediction[0];
+
+      for (let i = 1; i < prediction.length; i++) {
+        if (prediction[i].probability > highest.probability) {
+          highest = prediction[i];
+        }
+      }
+
+      if (highest.probability > 0.9) {
+        if (window.AppInventor) {
+          window.AppInventor.setWebViewString(highest.className);
+        }
+      }
+    }
+
+    init();
+  </script>
+
+</body>
+</html>
