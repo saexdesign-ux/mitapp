@@ -67,7 +67,7 @@
      </div>
     </div>
    </div><!-- Controls -->
-   <div class="flex gap-3 mb-6 fade-in" style="animation-delay: 0.2s;"><button id="btn-start" onclick="startDetection()" class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all hover:scale-105" style="background-color: #00e5a0; color: #0a0e1a;"> <i data-lucide="play" style="width:16px;height:16px;"></i> Mulai Deteksi </button> <button id="btn-stop" onclick="stopDetection()" class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all hover:scale-105 hidden" style="background-color: #ef4444; color: white;"> <i data-lucide="square" style="width:16px;height:16px;"></i> Stop </button>
+   <div class="flex gap-3 mb-6 fade-in" style="animation-delay: 0.2s;"><button id="btn-start" onclick="startDetection()" class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all hover:scale-105" style="background-color: #00e5a0; color: #0a0e1a;"> <i data-lucide="play" style="width:16px;height:16px;"></i> Mulai Deteksi </button> <button id="btn-stop" onclick="stopDetection()" class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all hover:scale-105 hidden" style="background-color: #ef4444; color: white;"> <i data-lucide="square" style="width:16px;height:16px;"></i> Stop </button> <button id="btn-manual-send" onclick="manualSendAbsensi()" class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all hover:scale-105" style="background-color: #06b6d4; color: white;"> <i data-lucide="send" style="width:16px;height:16px;"></i> Kirim Absensi </button>
    </div><!-- Confidence Display -->
    <div class="w-full max-w-md mb-6 fade-in" style="animation-delay: 0.3s;">
     <div class="rounded-xl p-4" style="background-color: #111827; border: 1px solid #1e293b;">
@@ -105,6 +105,7 @@
 
     let model, webcam, isRunning = false, lastSendTime = 0;
     let logs = [];
+    let absentStudents = new Set(); // Track students yang sudah absen
 
     const defaultConfig = {
       app_title: "Face Detection System",
@@ -263,15 +264,25 @@
     }
 
     function sendToGoogleForm(label, confidence) {
+      // label dari Teachable Machine berisi NIS
+      const nis = label; // NIS dari keterangan model
       const timestamp = new Date().toLocaleString("id-ID");
-      const value = `${label} | ${confidence}% | ${timestamp}`;
+      
+      // Cek apakah NIS sudah pernah absen
+      if (absentStudents.has(nis)) {
+        showToast(`⚠️ ${nis} sudah absen hari ini`);
+        return;
+      }
+      
+      const value = `${nis} | ${confidence}% | ${timestamp}`;
 
       const url = `${GOOGLE_FORM_URL}?${FORM_ENTRY}=${encodeURIComponent(value)}&submit=Submit`;
 
       fetch(url, { method: "GET", mode: "no-cors" })
         .then(() => {
+          absentStudents.add(nis); // Tandai sebagai sudah absen
           addLog(label, confidence, timestamp, true);
-          showToast(`📤 Data terkirim: ${label} (${confidence}%)`);
+          showToast(`📤 ${nis} berhasil absen!`);
         })
         .catch(() => {
           addLog(label, confidence, timestamp, false);
@@ -307,7 +318,11 @@
       `).join("");
     }
 
+    function manualSendAbsensi() {
+      showToast("❌ Fitur otomatis saja — arahkan wajah ke kamera");
+    }
+
     lucide.createIcons();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9f474fe121ecd9e8',t:'MTc3NzU2MDEzNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9f47629324fac4b3',t:'MTc3NzU2MDkwMi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
