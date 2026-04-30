@@ -1,0 +1,161 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Kamera FIX</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
+
+<style>
+body{
+    background:#111827;
+    color:white;
+    font-family:Arial;
+    text-align:center;
+    padding:20px;
+}
+button{
+    padding:14px 24px;
+    border:none;
+    border-radius:12px;
+    background:#10b981;
+    color:white;
+    font-size:18px;
+    cursor:pointer;
+}
+canvas{
+    margin-top:20px;
+    border-radius:20px;
+    border:4px solid #10b981;
+}
+#hasil{
+    margin-top:20px;
+    font-size:24px;
+    font-weight:bold;
+}
+#status{
+    margin-top:10px;
+    color:#fbbf24;
+}
+</style>
+</head>
+
+<body>
+
+<h1>AI Kamera Siswa</h1>
+
+<button id="startBtn">Aktifkan Kamera</button>
+
+<div id="status">Menunggu tombol ditekan...</div>
+
+<div id="kamera"></div>
+
+<div id="hasil">Belum ada deteksi</div>
+
+<script>
+
+const URL = "https://teachablemachine.withgoogle.com/models/FQRrdIwRj/";
+
+let model;
+let webcam;
+let sudahKirim = "";
+
+document.getElementById("startBtn").addEventListener("click", async function(){
+
+    try{
+
+        document.getElementById("status").innerText = "Loading model...";
+
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+
+        model = await tmImage.load(modelURL, metadataURL);
+
+        document.getElementById("status").innerText = "Meminta izin kamera...";
+
+        webcam = new tmImage.Webcam(320,320,true);
+
+        // FIX USER GESTURE
+        await webcam.setup();
+
+        // play HARUS setelah klik user
+        await webcam.play();
+
+        document.getElementById("kamera").appendChild(webcam.canvas);
+
+        document.getElementById("status").innerText = "Kamera aktif";
+
+        window.requestAnimationFrame(loop);
+
+    }catch(err){
+
+        console.error(err);
+
+        document.getElementById("status").innerText =
+            "ERROR : " + err.message;
+
+        alert(
+            "Error kamera:\n\n" +
+            err.message +
+            "\n\nPastikan:\n" +
+            "- Hosting HTTPS\n" +
+            "- Kamera diizinkan\n" +
+            "- Browser support kamera"
+        );
+    }
+});
+
+async function loop(){
+
+    webcam.update();
+
+    await predict();
+
+    window.requestAnimationFrame(loop);
+}
+
+async function predict(){
+
+    const prediksi = await model.predict(webcam.canvas);
+
+    let terbaik = prediksi[0];
+
+    for(let i=1;i<prediksi.length;i++){
+
+        if(prediksi[i].probability > terbaik.probability){
+
+            terbaik = prediksi[i];
+        }
+    }
+
+    const label = terbaik.className;
+    const persen = (terbaik.probability * 100).toFixed(1);
+
+    document.getElementById("hasil").innerHTML =
+        label + " (" + persen + "%)";
+
+    // Kirim jika >90%
+    if(terbaik.probability > 0.90){
+
+        if(sudahKirim != label){
+
+            sudahKirim = label;
+
+            console.log("KIRIM:", label);
+
+            // MIT APP INVENTOR
+            if(window.AppInventor){
+
+                window.AppInventor.setWebViewString(label);
+            }
+        }
+    }
+}
+
+</script>
+
+</body>
+</html>
