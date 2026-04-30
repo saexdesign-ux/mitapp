@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <style>
+    body { background: #000; color: #7df9b6; font-family: sans-serif; text-align: center; padding: 20px; }
+    #camera-wrapper { border: 2px solid #7df9b6; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+    .status { font-size: 1.2rem; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+  <div id="camera-wrapper"><div id="camera"></div></div>
+  <div class="status" id="nis-label">MENUNGGU...</div>
+  <button id="btn" onclick="startApp()" style="padding: 15px; margin-top: 10px;">AKTIFKAN KAMERA</button>
+
+  <script>
+    const MODEL_URL = "https://teachablemachine.withgoogle.com/models/FQRrdIwRj/";
+    let model, webcam;
+
+    async function startApp() {
+      document.getElementById("btn").style.display = "none";
+      model = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");
+      webcam = new tmImage.Webcam(300, 300, true); 
+      await webcam.setup();
+      await webcam.play();
+      document.getElementById("camera").appendChild(webcam.canvas);
+      window.requestAnimationFrame(loop);
+    }
+
+    async function loop() {
+      webcam.update();
+      await predict();
+      window.requestAnimationFrame(loop);
+    }
+
+    async function predict() {
+      const prediction = await model.predict(webcam.canvas);
+      let top = prediction.reduce((prev, curr) => (prev.probability > curr.probability) ? prev : curr);
+
+      if (top.probability > 0.90) { // Jika kemiripan di atas 90%
+        document.getElementById("nis-label").textContent = "TERDETEKSI: " + top.className;
+        
+        // MENGIRIM DATA KE MIT APP INVENTOR
+        if (window.AppInventor) {
+          window.AppInventor.setWebViewString(top.className);
+        }
+      }
+    }
+  </script>
+</body>
+</html>
