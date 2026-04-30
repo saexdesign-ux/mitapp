@@ -1,0 +1,71 @@
+<html lang="id">
+        // Webcam
+        const flip = true;
+        webcam = new tmImage.Webcam(320, 320, flip);
+
+        await webcam.setup();
+        await webcam.play();
+
+        window.requestAnimationFrame(loop);
+
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+
+        document.getElementById("status").innerText = "Kamera aktif";
+
+      } catch (err) {
+
+        console.error(err);
+
+        document.getElementById("status").innerText = "ERROR: " + err;
+      }
+    }
+
+    async function loop() {
+      webcam.update();
+      await predict();
+      window.requestAnimationFrame(loop);
+    }
+
+    async function predict() {
+
+      const prediction = await model.predict(webcam.canvas);
+
+      let highestPrediction = prediction[0];
+
+      for (let i = 1; i < prediction.length; i++) {
+        if (prediction[i].probability > highestPrediction.probability) {
+          highestPrediction = prediction[i];
+        }
+      }
+
+      const label = highestPrediction.className;
+      const percent = (highestPrediction.probability * 100).toFixed(1);
+
+      document.getElementById("label-container").innerHTML =
+        label + " : " + percent + "%";
+
+      // Jika probabilitas di atas 90%
+      if (highestPrediction.probability > 0.90) {
+
+        // Hindari kirim berulang
+        if (lastLabel !== label) {
+
+          lastLabel = label;
+
+          console.log("Terdeteksi:", label);
+
+          // Kirim ke MIT App Inventor
+          if (window.AppInventor) {
+            window.AppInventor.setWebViewString(label);
+          }
+
+        }
+      }
+    }
+
+    init();
+
+  </script>
+
+</body>
+</html>
