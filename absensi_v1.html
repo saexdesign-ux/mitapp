@@ -1,55 +1,254 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+  <title>AI Absensi Siswa</title>
+
+  <!-- TensorFlow -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
+
+  <!-- Teachable Machine -->
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5"></script>
+
   <style>
-    body { background: #000; color: #7df9b6; font-family: sans-serif; text-align: center; padding: 20px; }
-    #camera-wrapper { border: 2px solid #7df9b6; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
-    .status { font-size: 1.2rem; font-weight: bold; }
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+    }
+
+    body{
+      background:#0f1117;
+      color:white;
+      font-family:Arial, sans-serif;
+      min-height:100vh;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+    }
+
+    h1{
+      margin-bottom:20px;
+      color:#00ff99;
+      font-size:24px;
+    }
+
+    #camera{
+      border:3px solid #00ff99;
+      border-radius:12px;
+      overflow:hidden;
+      box-shadow:0 0 20px rgba(0,255,153,0.3);
+    }
+
+    canvas{
+      display:block;
+    }
+
+    #result{
+      margin-top:20px;
+      background:#1b1f2a;
+      padding:15px 25px;
+      border-radius:10px;
+      text-align:center;
+      width:320px;
+    }
+
+    #label{
+      font-size:28px;
+      font-weight:bold;
+      color:#00ff99;
+    }
+
+    #confidence{
+      margin-top:8px;
+      color:#ccc;
+      font-size:14px;
+    }
+
+    #status{
+      margin-top:15px;
+      color:#888;
+      font-size:14px;
+    }
   </style>
 </head>
+
 <body>
 
-  <div id="camera-wrapper"><div id="camera"></div></div>
-  <div class="status" id="nis-label">MENUNGGU...</div>
-  <button id="btn" onclick="startApp()" style="padding: 15px; margin-top: 10px;">AKTIFKAN KAMERA</button>
+  <h1>AI Absensi Siswa</h1>
+
+  <div id="camera"></div>
+
+  <div id="result">
+    <div id="label">Menunggu...</div>
+    <div id="confidence">0%</div>
+  </div>
+
+  <div id="status">Loading model...</div>
 
   <script>
-    const MODEL_URL = "https://teachablemachine.withgoogle.com/models/FQRrdIwRj/";
-    let model, webcam;
 
-    async function startApp() {
-      document.getElementById("btn").style.display = "none";
-      model = await tmImage.load(MODEL_URL + "model.json", MODEL_URL + "metadata.json");
-      webcam = new tmImage.Webcam(300, 300, true); 
-      await webcam.setup();
-      await webcam.play();
-      document.getElementById("camera").appendChild(webcam.canvas);
-      window.requestAnimationFrame(loop);
+    // =========================
+    // MODEL URL
+    // =========================
+    const MODEL_URL =
+      "https://teachablemachine.withgoogle.com/models/FQRrdIwRj/";
+
+    // =========================
+    // VARIABLE
+    // =========================
+    let model;
+    let webcam;
+
+    let lastSent = "";
+    let lastSendTime = 0;
+
+    const CONFIDENCE_LIMIT = 0.90;
+    const SEND_DELAY = 2000;
+
+    // =========================
+    // INIT
+    // =========================
+    async function init(){
+
+      try{
+
+        document.getElementById("status").innerText =
+          "Loading model...";
+
+        const modelURL = MODEL_URL + "model.json";
+        const metadataURL = MODEL_URL + "metadata.json";
+
+        model = await tmImage.load(modelURL, metadataURL);
+
+        document.getElementById("status").innerText =
+          "Mengaktifkan kamera...";
+
+        webcam = new tmImage.Webcam(320, 320, true);
+
+        await webcam.setup({
+          facingMode:"user"
+        });
+
+        await webcam.play();
+
+        document
+          .getElementById("camera")
+          .appendChild(webcam.canvas);
+
+        document.getElementById("status").innerText =
+          "AI aktif";
+
+        window.requestAnimationFrame(loop);
+
+      }catch(error){
+
+        console.log(error);
+
+        document.getElementById("status").innerText =
+          "ERROR : " + error.message;
+      }
     }
 
-    async function loop() {
+    // =========================
+    // LOOP
+    // =========================
+    async function loop(){
+
       webcam.update();
+
       await predict();
+
       window.requestAnimationFrame(loop);
     }
 
-    async function predict() {
-      const prediction = await model.predict(webcam.canvas);
-      let top = prediction.reduce((prev, curr) => (prev.probability > curr.probability) ? prev : curr);
+    // =========================
+    // PREDICT
+    // =========================
+    async function predict(){
 
-      if (top.probability > 0.90) { // Jika kemiripan di atas 90%
-        document.getElementById("nis-label").textContent = "TERDETEKSI: " + top.className;
-        
-        // MENGIRIM DATA KE MIT APP INVENTOR
-        if (window.AppInventor) {
-          window.AppInventor.setWebViewString(top.className);
+      const prediction =
+        await model.predict(webcam.canvas);
+
+      let highest = prediction[0];
+
+      for(let i=1; i<prediction.length; i++){
+
+        if(
+          prediction[i].probability >
+          highest.probability
+        ){
+          highest = prediction[i];
+        }
+      }
+
+      const label = highest.className;
+
+      const confidence =
+        highest.probability;
+
+      // =========================
+      // UPDATE UI
+      // =========================
+      document.getElementById("label").innerText =
+        label;
+
+      document.getElementById("confidence").innerText =
+        (confidence * 100).toFixed(1) + "%";
+
+      // =========================
+      // KIRIM KE APP INVENTOR
+      // =========================
+      const now = Date.now();
+
+      if(
+        confidence >= CONFIDENCE_LIMIT &&
+        label !== lastSent &&
+        now - lastSendTime > SEND_DELAY
+      ){
+
+        console.log("Kirim:", label);
+
+        try{
+
+          if(window.AppInventor){
+
+            window.AppInventor
+              .setWebViewString(label);
+
+            lastSent = label;
+
+            lastSendTime = now;
+
+            document.getElementById("status").innerText =
+              "Data dikirim ke App Inventor";
+
+          }else{
+
+            document.getElementById("status").innerText =
+              "Mode browser biasa";
+          }
+
+        }catch(e){
+
+          console.log(e);
+
+          document.getElementById("status").innerText =
+            "Gagal kirim data";
         }
       }
     }
+
+    // =========================
+    // START
+    // =========================
+    init();
+
   </script>
+
 </body>
 </html>
